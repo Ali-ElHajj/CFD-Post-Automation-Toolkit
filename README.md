@@ -216,8 +216,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Include reproducible inputs, versions, l
 
 ## Author and license
 
-**Author:** [Your name]  
-**Profile/contact:** [Add your preferred profile or contact link]
+**Author:** ALI EL HAJJ  
+**Profile/contact:** https://www.linkedin.com/in/ali-el-hajj-16397a17b?utm_source=share_via&utm_content=profile&utm_medium=member_ios
 
 No license was supplied with the source package, and this release preparation does not choose one on the author's behalf. Add an appropriate `LICENSE` before presenting the repository as open source.
 
