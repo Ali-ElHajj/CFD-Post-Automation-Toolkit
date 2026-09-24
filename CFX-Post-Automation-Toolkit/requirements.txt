@@ -1,0 +1,6 @@
+numpy
+pandas
+scipy
+pythermalcomfort==3.8.0
+psychrolib
+pywin32
