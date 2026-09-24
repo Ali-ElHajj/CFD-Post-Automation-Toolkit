@@ -219,7 +219,27 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Include reproducible inputs, versions, l
 **Author:** ALI EL HAJJ  
 **Profile/contact:** https://www.linkedin.com/in/ali-el-hajj-16397a17b?utm_source=share_via&utm_content=profile&utm_medium=member_ios
 
-No license was supplied with the source package, and this release preparation does not choose one on the author's behalf. Add an appropriate `LICENSE` before presenting the repository as open source.
+MIT License
+
+Copyright (c) 2026 Ali El Hajj
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ## Disclaimer
 
