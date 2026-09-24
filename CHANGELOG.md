@@ -2,7 +2,7 @@
 
 ## 1.0.0 — first public release preparation
 
-This public release starts at v1.0.0. It is based on the supplied internal GUI v11.1 package, whose Python metadata previously used 0.7.1. Those internal labels do not represent prior public releases.
+This public release starts at v1.0.0 released on September 24th, 2026. It is based on the supplied internal GUI v11.1 package, whose Python metadata previously used 0.7.1. Those internal labels do not represent prior public releases.
 
 - Organized source, detailed documentation, screenshot placeholders, setup helper, and small examples around one root README.
 - Standardized Python distribution and module versions to 1.0.0.
