@@ -180,12 +180,12 @@ Screenshots are not bundled yet. Add the following files under [`docs/images/`](
 
 | Placeholder path | Suggested caption |
 | --- | --- |
-| `docs/images/01-mode-selection.png` | Choose full automation, thermal calculations, or visuals only |
-| `docs/images/02-thermal-and-variables.png` | Configure comfort calculations and custom CEL variables |
-| `docs/images/03-visual-selection.png` | Select surfaces, sections, variables, and contour ranges |
-| `docs/images/04-histograms.png` | Configure surface and volume histograms |
-| `docs/images/05-average-table.png` | Select surface and volume averages |
-| `docs/images/06-cfx-result.png` | Example contour output in CFX-Post |
+| ![Choose an operating mode](docs/images/01-mode-selection.png) | Choose full automation, thermal calculations, or visuals only |
+| ![Choose an operating mode](docs/images/02-thermal-and-variables.png) | Configure comfort calculations and custom CEL variables |
+| ![Choose an operating mode](docs/images/03-visual-selection.png) | Select surfaces, sections, variables, and contour ranges |
+| ![Choose an operating mode](docs/images/04-histograms.png) | Configure surface and volume histograms |
+| ![Choose an operating mode](docs/images/05-average-table.png) | Select surface and volume averages |
+| ![Choose an operating mode](docs/images/06-cfx-result.png) | Example contour output in CFX-Post |
 
 ## Limitations and compatibility
 
