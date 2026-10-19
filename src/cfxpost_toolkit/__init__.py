@@ -3,6 +3,8 @@
 from .config import (
     CFXAutomationConfig,
     CreatedVariableConfig,
+    ImportedCSVFileConfig,
+    ImportedCSVVariableConfig,
     ProjectConfig,
     SectionVariableConfig,
     ThermalComfortConfig,
@@ -14,6 +16,8 @@ from .progress import ProgressEvent
 __all__ = [
     "CFXAutomationConfig",
     "CreatedVariableConfig",
+    "ImportedCSVFileConfig",
+    "ImportedCSVVariableConfig",
     "ProjectConfig",
     "SectionVariableConfig",
     "ThermalComfortConfig",
@@ -22,4 +26,4 @@ __all__ = [
     "ProgressEvent",
 ]
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"

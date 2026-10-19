@@ -1,8 +1,8 @@
-# CFX-Post-Automation-Toolkit
+# CFD-Post Automation Toolkit
 
 **Automate CFX-Post exports, thermal-comfort calculations, contours, histograms, and average tables through a Python desktop GUI.**
 
-**First public release: v1.0.0** · Windows · Python 3.10+ · CFX-Post session target: 23.2
+**Version: v1.1.0 · Python package: 1.1.0** · Windows · Python 3.10+ · CFX-Post session target: 23.2
 
 CFX-Post Automation Toolkit connects an already-open CFX-Post case to a repeatable post-processing workflow. Select locations, calculation settings, and visual outputs in a Tkinter wizard, or configure the same workflows through Python examples.
 
@@ -16,10 +16,22 @@ CFD post-processing often repeats the same work across many surfaces: export dat
 - PMV/PPD and operative temperature enabled by default; optional SET, UTCI, draft rate, clothing-surface calculations, and psychrometrics.
 - Top-view and section contours, optional section velocity vectors, and separate velocity-streamline figures.
 - Surface and volume histograms with shared per-variable bounds and divisions.
-- One average table containing surface and/or volume averages.
+- Ready-made Generic Data CSV surfaces with independent contours, histograms, and averages.
+- One average table with surface, volume, and imported-surface blocks; shared imported variables occupy one column.
 - Custom CEL expressions exposed as CFX user scalar variables.
 - Generated `.cse` files for export, import, figure creation, and printing; optional automatic PNG/table export.
 - Progress messages in the GUI and callbacks for Python workflows.
+
+## New in v1.1.0
+
+- Imported CSV variables have independent **Contour**, **Histogram**, and **Average** checkboxes, with shared lower/upper bounds and separate contour counts/histogram divisions.
+- CSVs with matching variable sets use one shared configuration table; differing sets retain per-surface tables.
+- **Averages table** appears last in Visual Output Types, with its table-name field aligned alongside it. The Imported CSV page precedes the Average Table page.
+- The combined table adds **Imported Surface Averages**. Shared variables use a single column; unselected or unavailable values leave blank cells.
+- Imported contours and histograms use qualified variable names. Blank bounds use each surface's 5th/95th percentiles, and imported geometry contributes to common top-view framing.
+- A dedicated import session executes before figure/table creation.
+
+**Validation:** v1.1.0 is syntax/session-generation tested, **not live-validated in CFX-Post**. See [validation details](docs/VALIDATION.md) and [release notes](docs/RELEASE_NOTES_v1.1.0.md).
 
 ## Choose an operating mode
 
@@ -43,14 +55,14 @@ CFX-Post, simulation cases, and commercial licenses are not included.
 
 ## Installation
 
-Download and extract this repository, then open a terminal in the `CFX-Post-Automation-Toolkit` folder:
+Download and extract this repository, then open a terminal in the `CFD-Post-Automation-Toolkit` folder:
 
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e .
 ```
 
-This installs the local package and its declared dependencies. The repository name is `CFX-Post-Automation-Toolkit`; the Python distribution is `cfxpost-toolkit`, and imports use `cfxpost_toolkit`.
+This installs the local package and its declared dependencies. The repository name is `CFD-Post-Automation-Toolkit`; the Python distribution is `cfxpost-toolkit`, and imports use `cfxpost_toolkit`.
 
 **Prefer IDLE?** Open [`scripts/setup_environment.py`](scripts/setup_environment.py) with the Python installation you intend to use and press **F5**. It installs this checkout and its dependencies into that interpreter. Then open the root launcher in the same IDLE installation. See [installation details and troubleshooting](docs/INSTALLATION.md).
 
@@ -99,7 +111,7 @@ Defaults are **1.7 met**, **0.57 clo**, minimum velocity **0.05 m/s**, pressure 
 - Section cameras are computed independently from exported geometry using PCA/SVD and a point-and-normal clipping plane. Section contours support native/created variables, optional velocity vectors, and velocity streamlines.
 - Top-view and section velocity streamlines create separate figures and reuse Velocity bounds.
 - Contour count defaults to **21**, histogram divisions to **20**, vector and streamline sample counts to **100**, and image size to **2400 × 1600**.
-- Automatic bounds use common 5th/95th-percentile statistics. In figures-only mode, top-view and histogram variables require explicit lower/upper bounds; section bounds may remain automatic.
+- Automatic bounds use common 5th/95th-percentile statistics. In figures-only mode, native top-view and histogram variables require explicit lower/upper bounds; section bounds may remain automatic. Imported CSV variables have their own per-surface percentile fallback.
 - Surface averages use `areaAve(...)`; volume averages use `volumeAve(...)`. Calculated thermal-comfort variables are excluded from volume averages.
 
 ### Custom CEL variables
@@ -128,17 +140,17 @@ flowchart LR
     H --> I[Optional PNG and table export]
 ```
 
-This shows full automation. Thermal-only begins with existing CSVs. Figures-only obtains temporary geometry and metadata from CFX and skips comfort calculation/import. Completion-marker files synchronize Python with CFX session execution.
+This shows full automation. Thermal-only begins with existing CSVs. Figures-only obtains temporary geometry and metadata from CFX and skips comfort calculation. It can import ready-made CSV surfaces before creating visuals. Completion-marker files synchronize Python with CFX session execution.
 
 ```text
-CFX-Post-Automation-Toolkit/
+CFD-Post-Automation-Toolkit/
 ├── README.md                     # Start here
 ├── CFX_Post_Toolkit_GUI.py        # Desktop launcher
 ├── pyproject.toml                # Package metadata and dependencies
 ├── requirements.txt              # Dependency-only installation alternative
-├── CHANGELOG.md                  # First public release notes
+├── CHANGELOG.md                  # Version history
 ├── CONTRIBUTING.md               # Contribution and validation guidance
-├── docs/                        # Detailed guides and screenshot placeholders
+├── docs/                        # Detailed usage and validation guides
 ├── examples/                    # Small scripts and synthetic input data
 ├── scripts/setup_environment.py # IDLE-friendly installation helper
 └── src/cfxpost_toolkit/          # GUI, configuration, workflows and engine
@@ -176,9 +188,9 @@ Thermal-only uses the input and output folders selected by the user. Figures-onl
 
 ## Screenshots
 
-Screenshots are not bundled yet. Add the following files under [`docs/images/`](docs/images/README.md), then embed the images here. Paths are intentionally shown as text until the files exist.
+The existing screenshots below are retained from the earlier public version. They illustrate the workflow but do not show the new v1.1.0 imported-CSV controls or revised averages layout.
 
-| Placeholder path | Suggested caption |
+| Screenshot | Description |
 | --- | --- |
 | ![Choose an operating mode](docs/images/01-mode-selection.png) | Choose full automation, thermal calculations, or visuals only |
 | ![Choose an operating mode](docs/images/02-thermal-and-variables.png) | Configure comfort calculations and custom CEL variables |
@@ -193,19 +205,19 @@ Screenshots are not bundled yet. Add the following files under [`docs/images/`](
 - Automation drives the visible Windows Command Editor using its title, relative click positions, and clipboard. Window layout, scaling, localization, or competing mouse/keyboard activity can affect it.
 - The toolkit does not launch CFX-Post, load result files, solve CFD cases, or create the source geometry/locations for you.
 - Thermal CSVs must follow the expected CFX Generic surface format with `[Faces]`; arbitrary spreadsheets are not supported.
-- Figures-only is intended for native/created variables. Built-in calculated comfort names such as `PMV` need import CSVs that this workflow does not supply; use full automation for those visuals.
+- In figures-only mode, built-in comfort variables are unavailable through the normal native-variable panels. To visualize precomputed results, use **Imported ready CSV contours / histograms / averages** and select variables detected in compatible Generic Data CSVs.
 - Engine configuration uses module-level state. Run one workflow at a time in a Python process.
 - The toolkit produces images and tables, not a composed Word/PDF report. No standalone executable is provided.
 - See [troubleshooting](docs/INSTALLATION.md#troubleshooting) and [calculation caveats](docs/THERMAL_COMFORT.md#interpretation-and-limitations).
 
 ## Version status and roadmap
 
-**v1.0.0 is the first public release designation.** Earlier internal package/GUI numbering is not a public release sequence. See [CHANGELOG.md](CHANGELOG.md) for the packaging changes and [validation status](docs/VALIDATION.md) for checks performed.
+**Public v1.1.0 follows v1.0.0 and is based on internal toolkit revision v11.3.** Python package metadata uses 1.1.0. See [CHANGELOG.md](CHANGELOG.md) and [validation status](docs/VALIDATION.md).
 
 Potential future work, not shipped capabilities or commitments:
 
 - Establish a documented live CFX/Python compatibility matrix and reference-case checks.
-- Add GUI screenshots and a distributable demonstration case with clear usage rights.
+- Refresh GUI screenshots for v1.1.0 and add a distributable demonstration case with clear usage rights.
 - Separate CSV calculations from Windows automation imports.
 - Add saved/reloadable GUI configurations and more robust automation diagnostics.
 - Expand numerical regression coverage and investigate packaged executable distribution.
@@ -217,7 +229,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Include reproducible inputs, versions, l
 ## Author and license
 
 **Author:** ALI EL HAJJ  
-**Profile/contact:** https://www.linkedin.com/in/ali-el-hajj-16397a17b?utm_source=share_via&utm_content=profile&utm_medium=member_ios
+**Profile/contact:** [LinkedIn](https://www.linkedin.com/in/ali-el-hajj-16397a17b)
 
 MIT License
 

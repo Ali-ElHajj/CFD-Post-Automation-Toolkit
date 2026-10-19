@@ -37,7 +37,7 @@ This mode does not create new figures or rerun export. Directory processing matc
 
 Temporary exports obtain geometry and metadata. Volumes used only for tables or explicit-bound histograms require metadata rather than full point-data exports. Output files go directly into the selected directory. Temporary files are removed after session generation, including on errors where cleanup is possible.
 
-Do not select built-in calculated thermal-comfort names such as `PMV` in this workflow: it does not pass thermal import CSVs to visualization generation. A manual name is not a way to bypass that restriction. Use full automation for comfort contours and surface histograms.
+Do not select built-in calculated thermal-comfort names such as `PMV` through the normal native-variable panels in this workflow. To use precomputed comfort results, add compatible files through the imported-CSV panel described below.
 
 ## Locations and selections
 
@@ -62,7 +62,25 @@ Automatic ranges use common 5th/95th-percentile statistics. Surface and volume h
 
 Section vector overlays use one vector object per section. Velocity streamlines are separate figures and have a global sample setting independent of vector samples. Choose Velocity in the corresponding panel when requesting its streamline figures.
 
-The average table can contain **Surface Averages**, **Volume Averages**, or both. Surface calculations use `areaAve`, volume calculations use `volumeAve`. Relative Humidity uses the generated percentage variable internally. Thermal-comfort variables only contribute to the surface block.
+The average table can contain **Surface Averages**, **Volume Averages**, and **Imported Surface Averages**. Surface calculations use `areaAve`, volume calculations use `volumeAve`. Relative Humidity uses the generated percentage variable internally. Thermal-comfort variables only contribute to the surface block.
+
+## Imported ready CSV surfaces (v1.1.0)
+
+Available in full and figures-only modes:
+
+1. Enable **Imported ready CSV contours / histograms / averages** on Visual Output Types.
+2. Choose compatible CFX Generic Data CSV files with X/Y/Z geometry, numeric variable columns, and face connectivity. Arbitrary spreadsheet CSVs are not supported.
+3. Review detected variables. Choose **Contour**, **Histogram**, and/or **Average** independently. Matching variable sets share one configuration table; differing sets get per-file tables.
+4. Set lower/upper bounds in the CSV variable's own units. Blank limits use that surface's 5th/95th percentiles. Contours and histograms share those limits, while their counts are separate.
+5. To include selected averages, also enable **Averages table** and set its name. The Average Table page follows the Imported CSV page and summarizes the imported selections.
+
+The import session, `import_imported_csv_session.cse`, defines `USER SURFACE: Imported CSV Results <surface>` objects and executes before figure/table creation. Imported geometry participates in the common top-view camera. Imported variables are qualified with their object name, for example:
+
+```text
+=areaAve(Temperature on Imported CSV Results Surface A)@Imported CSV Results Surface A
+```
+
+Each selected variable gets one column in the imported averages block (names are matched without case). Only surfaces with at least one selected average get rows; unavailable or unselected variables leave blank cells. Imported values use their CSV units without the native-temperature Celsius conversion. Confirm imported-variable qualification and `areaAve` behavior in CFX-Post before relying on outputs.
 
 ## Custom CEL variables
 

@@ -21,7 +21,7 @@
 - `run_full_workflow(config)`: exports from open CFX, calculates, imports, creates visuals, optionally prints.
 - `run_thermal_comfort_directory_workflow(...)`: processes matching CSVs and creates an update-existing import session; execution defaults off.
 - `run_thermal_comfort_workflow(config, ...)`: processes specific named surfaces; `update_existing_imports` controls import semantics.
-- `run_visualization_workflow(config, ...)`: exports temporary geometry/metadata and creates visuals. Even `execute_creation=False` still requires CFX for temporary export; it is not an offline dry run.
+- `run_visualization_workflow(config, ...)`: exports temporary geometry/metadata and creates visuals, including optional ready-made CSV imports before creation. Even `execute_creation=False` still requires CFX for temporary export; it is not an offline dry run.
 - `process_file`, `process_files`, `process_directory`: calculate CSV outputs without executing CFX.
 
 The GUI sends progress events through a queue. CFX execution uses visible window automation and completion markers rather than a headless solver or remote API. Generated session files remain available for inspection.

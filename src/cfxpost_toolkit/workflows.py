@@ -9,6 +9,7 @@ from .progress import ProgressCallback, emit
 from .sessions import (
     create_export_session,
     create_import_session,
+    create_imported_csv_import_session,
     create_temporary_visualization_export_session,
     create_visualization_sessions,
 )
@@ -291,11 +292,27 @@ def run_visualization_workflow(
             surface_locations=surface_locations,
             volume_locations=volume_locations,
             case_name=case_name,
+            imported_csv_files=vis.imported_csv_files,
         )
     finally:
         _cleanup_temporary_visualization_files(project, temp_dir, temp_files, progress_callback)
 
+    imported_csv_import_session = None
     if execute_creation:
+        if vis.create_imported_csv_visualizations and vis.imported_csv_files:
+            emit(progress_callback, "import", "Importing selected ready CSV surfaces")
+            imported_csv_import_session = create_imported_csv_import_session(
+                vis.imported_csv_files,
+                project.figures_directory if project.direct_visualization_output else project.import_directory,
+            )
+            execute_session(
+                imported_csv_import_session,
+                completion_file=(project.figures_directory if project.direct_visualization_output else project.import_directory) / "import_imported_csv_complete.txt",
+                completion_text="Import is successful",
+                description="CFX-Post imported CSV surface import",
+                automation=config.automation,
+                progress_callback=progress_callback,
+            )
         execute_session(
             create_session,
             completion_file=project.figures_directory / "figures_creation_complete.txt",
@@ -315,6 +332,7 @@ def run_visualization_workflow(
             )
     emit(progress_callback, "done", "Visualization workflow complete")
     return {
+        "imported_csv_import_session": imported_csv_import_session,
         "create_figures_session": create_session,
         "print_figures_session": print_session,
         "statistics": statistics,
@@ -390,10 +408,26 @@ def run_full_workflow(
             surface_locations=surface_locations,
             volume_locations=volume_locations,
             case_name=case_name,
+            imported_csv_files=config.visualization.imported_csv_files,
         )
     finally:
         _cleanup_temporary_visualization_files(project, temp_dir, temp_files, progress_callback)
 
+    imported_csv_import_session = None
+    if config.visualization.create_imported_csv_visualizations and config.visualization.imported_csv_files:
+        emit(progress_callback, "import", "Importing selected ready CSV surfaces")
+        imported_csv_import_session = create_imported_csv_import_session(
+            config.visualization.imported_csv_files,
+            project.import_directory,
+        )
+        execute_session(
+            imported_csv_import_session,
+            completion_file=project.import_directory / "import_imported_csv_complete.txt",
+            completion_text="Import is successful",
+            description="CFX-Post imported CSV surface import",
+            automation=config.automation,
+            progress_callback=progress_callback,
+        )
     execute_session(
         create_session,
         completion_file=project.figures_directory / "figures_creation_complete.txt",
@@ -415,6 +449,7 @@ def run_full_workflow(
     return {
         "export_session": export_session,
         "import_files": import_files,
+        "imported_csv_import_session": imported_csv_import_session,
         "create_figures_session": create_session,
         "print_figures_session": print_session if create_print_session else None,
         "statistics": statistics,

@@ -75,6 +75,29 @@ class SectionVariableConfig:
 
 
 @dataclass
+class ImportedCSVVariableConfig:
+    """Visualization settings for one variable found in one imported CSV surface."""
+
+    name: str
+    create_contour: bool = False
+    create_histogram: bool = False
+    create_average: bool = False
+    lower: float | None = None
+    upper: float | None = None
+    number_of_contours: int | None = None
+    histogram_divisions: int | None = None
+
+
+@dataclass
+class ImportedCSVFileConfig:
+    """One ready-to-import Generic Data CSV used for additional figures/histograms."""
+
+    csv_file: Path
+    surface_name: str
+    variables: list[ImportedCSVVariableConfig] = field(default_factory=list)
+
+
+@dataclass
 class VisualizationConfig:
     """Contour, section, histogram, streamline, table and hardcopy settings."""
 
@@ -84,6 +107,7 @@ class VisualizationConfig:
     create_surface_histograms: bool = False
     create_volume_histograms: bool = False
     create_average_table: bool = True
+    create_imported_csv_visualizations: bool = False
 
     # Normal/top-view variables. Entries use "Variable" or
     # "Variable, lower, upper, count".
@@ -112,6 +136,9 @@ class VisualizationConfig:
     # Volumetric histograms use only native CFX variables (+ manual names).
     volume_histogram_volumes: list[str] = field(default_factory=list)
     volume_histogram_variables: list[str] = field(default_factory=list)
+
+    # Imported ready-made CSV surfaces.
+    imported_csv_files: list[ImportedCSVFileConfig] = field(default_factory=list)
 
     default_number_of_contours: int = 21
     default_histogram_divisions: int = 20

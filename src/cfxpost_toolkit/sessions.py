@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .config import CreatedVariableConfig, ProjectConfig, SectionVariableConfig, VisualizationConfig
+from .config import (
+    CreatedVariableConfig,
+    ImportedCSVFileConfig,
+    ImportedCSVVariableConfig,
+    ProjectConfig,
+    SectionVariableConfig,
+    VisualizationConfig,
+)
 
 
 
@@ -115,6 +122,18 @@ def create_import_session(
     )
 
 
+def create_imported_csv_import_session(
+    imported_csv_files: list[ImportedCSVFileConfig],
+    output_directory: Path | str,
+) -> Path:
+    from . import _engine as engine
+
+    return engine.create_imported_csv_user_surface_session_file(
+        Path(output_directory),
+        imported_csv_files,
+    )
+
+
 def _native_cfx_variable_name(name: str) -> str | None:
     from . import _engine as engine
 
@@ -168,9 +187,6 @@ def create_temporary_visualization_export_session(
             "Volume data exports must also be present in the metadata volume list: "
             + ", ".join(unknown_export_volumes)
         )
-    if not unique_surfaces and not unique_volumes:
-        raise ValueError("No surfaces or volumes were supplied for temporary visualization export.")
-
     variables, seen_vars = [], set()
     for name in native_variable_names or []:
         cfx_name = _native_cfx_variable_name(str(name).strip())
@@ -315,6 +331,7 @@ def create_visualization_sessions(
     surface_locations: dict[str, str] | None = None,
     volume_locations: dict[str, str] | None = None,
     case_name: str = "",
+    imported_csv_files: list[ImportedCSVFileConfig] | None = None,
 ) -> tuple[Path, Path, dict]:
     """Create contour/section/surface+volume histogram sessions."""
     from . import _engine as engine
@@ -323,6 +340,7 @@ def create_visualization_sessions(
     _validate_created_variables(settings.created_variables)
     apply_visualization_config(engine, settings)
     project.figures_directory.mkdir(parents=True, exist_ok=True)
+    imported_csv_files = list(imported_csv_files if imported_csv_files is not None else settings.imported_csv_files)
 
     figure_configs = engine.parse_variable_entries(
         settings.figure_variables,
@@ -353,12 +371,21 @@ def create_visualization_sessions(
     table_variables = [str(name).strip() for name in settings.table_variables if str(name).strip()]
     table_surfaces = list(settings.table_surfaces)
     table_volumes = list(settings.table_volumes)
-    # Backward compatibility for programmatic users: when the new table-specific
-    # selections are omitted, preserve the old behavior (all normal surfaces and
-    # the top-view variables). The GUI always supplies explicit selections.
-    if settings.create_average_table and not table_surfaces and not table_volumes:
+    imported_average_selected = any(
+        any(getattr(v, "create_average", False) for v in item.variables)
+        for item in imported_csv_files
+    )
+    # Backward compatibility for programmatic users: when table-specific
+    # selections are omitted and there is no imported-only table selection,
+    # preserve the old behavior (all normal surfaces and top-view variables).
+    if (
+        settings.create_average_table
+        and not imported_average_selected
+        and not table_surfaces
+        and not table_volumes
+    ):
         table_surfaces = list(project.surfaces)
-    if settings.create_average_table and not table_variables:
+    if settings.create_average_table and (table_surfaces or table_volumes) and not table_variables:
         table_variables = list(figure_variables)
     section_variables = [item["name"] for item in section_configs]
 
@@ -374,14 +401,25 @@ def create_visualization_sessions(
         not settings.volume_histogram_volumes or not volume_histogram_variables
     ):
         raise ValueError("Volumetric histograms require selected volumes and native variables.")
-    if (settings.create_surface_histograms or settings.create_volume_histograms) and not str(case_name).strip():
+    needs_any_histograms = (
+        settings.create_surface_histograms
+        or settings.create_volume_histograms
+        or any(any(v.create_histogram for v in item.variables) for item in imported_csv_files)
+    )
+    if needs_any_histograms and not str(case_name).strip():
         raise RuntimeError(
             "Could not determine the active CFD-Post case name required by histogram charts. "
             "The temporary/full export metadata did not contain DATA READER -> Active Case Name."
         )
     if settings.create_average_table:
-        if (not table_surfaces and not table_volumes) or not table_variables:
-            raise ValueError("The average table requires at least one selected surface or volume and one variable.")
+        if not table_surfaces and not table_volumes and not imported_average_selected:
+            raise ValueError(
+                "The average table requires at least one selected surface, volume, or imported-surface average."
+            )
+        if (table_surfaces or table_volumes) and not table_variables:
+            raise ValueError(
+                "Normal surface/volume average blocks require at least one selected table variable."
+            )
         unknown_table_surfaces = [s for s in table_surfaces if s not in project.surfaces]
         if unknown_table_surfaces:
             raise ValueError(
@@ -472,6 +510,7 @@ def create_visualization_sessions(
         volume_histogram_volumes=settings.volume_histogram_volumes if settings.create_volume_histograms else [],
         volume_export_files=volume_export_files if settings.create_volume_histograms else [],
         volume_histogram_configs=volume_histogram_configs if settings.create_volume_histograms else [],
+        imported_csv_files=imported_csv_files if settings.create_imported_csv_visualizations else [],
     )
 
     create_session = engine.create_figures_session_file(
@@ -498,6 +537,7 @@ def create_visualization_sessions(
         surface_locations=surface_locations or {},
         volume_locations=volume_locations or {},
         case_name=case_name,
+        imported_csv_files=imported_csv_files if settings.create_imported_csv_visualizations else [],
     )
     print_session = engine.create_print_figures_session_file(
         project.figures_directory,
@@ -512,5 +552,6 @@ def create_visualization_sessions(
         volume_histogram_variables=volume_histogram_variables if settings.create_volume_histograms else [],
         create_average_table=settings.create_average_table,
         average_table_name=settings.average_table_name,
+        imported_csv_files=imported_csv_files if settings.create_imported_csv_visualizations else [],
     )
     return create_session, print_session, statistics

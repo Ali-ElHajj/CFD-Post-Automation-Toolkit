@@ -41,7 +41,7 @@ Open the correct result, create the surfaces/sections/volumes you intend to refe
 | Missing input variable | Use the toolkit export or match the required Generic CSV schema exactly |
 | A second thermal-only run fails on a cleaned CSV | Move `export_*_cleaned.csv` diagnostics out of the input folder; the directory glob also matches them |
 | Duplicate imported surfaces | Full automation creates fresh Generic Data imports; thermal-only updates existing imported surfaces by name |
-| Figures-only fails for `PMV` | Use full automation; built-in comfort variables require accompanying import CSVs |
+| Figures-only fails for `PMV` | Use full automation, or select precomputed results through the imported-CSV panel rather than normal native-variable panels |
 | No PNG/table files | Figure creation and printing are separate; execute `print_figures_session.cse` or enable automatic printing |
 | Table appears as one spreadsheet column | Import it using a tab delimiter despite its `.csv` extension |
 | Histogram active-case error | Confirm the result is loaded and metadata contains the active CFX case name |

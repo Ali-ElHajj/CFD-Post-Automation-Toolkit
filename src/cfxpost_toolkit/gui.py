@@ -8,7 +8,11 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from .config import CreatedVariableConfig, ProjectConfig, SectionVariableConfig, ThermalComfortConfig, ToolkitConfig, VisualizationConfig
+from .config import (
+    CreatedVariableConfig, ImportedCSVFileConfig, ImportedCSVVariableConfig,
+    ProjectConfig, SectionVariableConfig, ThermalComfortConfig, ToolkitConfig, VisualizationConfig,
+)
+from ._engine import imported_csv_variable_columns, read_import_dataframe
 from .progress import ProgressEvent
 from .workflows import run_full_workflow, run_thermal_comfort_directory_workflow, run_visualization_workflow
 
@@ -129,6 +133,7 @@ class ToolkitWizard(tk.Tk):
         self.table_volume_selection = {}
         self.table_variable_selection = {}
         self.variable_settings = {}
+        self.imported_csv_items = []
 
         self.plan_streamlines = tk.BooleanVar(value=False)
         self.section_streamlines = tk.BooleanVar(value=False)
@@ -151,6 +156,7 @@ class ToolkitWizard(tk.Tk):
         self.visual_sections = tk.BooleanVar(value=False)
         self.visual_hist = tk.BooleanVar(value=False)
         self.visual_table = tk.BooleanVar(value=True)
+        self.visual_imported_csv = tk.BooleanVar(value=False)
         self.average_table_name = tk.StringVar(value="Average conditions")
 
         self.first_figure_number = tk.StringVar(value="1")
@@ -210,6 +216,7 @@ class ToolkitWizard(tk.Tk):
             "sections": ("Section views", "Section names and variables"),
             "histograms": ("Histograms", "Choose surface and/or volume histograms and their variables"),
             "table": ("Average table", "Choose surface/volume locations and variables"),
+            "imported_csvs": ("Imported ready CSV surfaces", "Choose Generic Data CSV files and the variables to plot"),
             "variable_settings": ("Variable ranges and resolution", "Shared bounds, contour counts and histogram divisions"),
             "controls": ("General controls", "Camera, numbering, cleaning, hardcopy and optional printing"),
         }[page]
@@ -485,6 +492,7 @@ class ToolkitWizard(tk.Tk):
             ("Top-view contours and figures", self.visual_plan),
             ("Section-view contours and figures", self.visual_sections),
             ("Histograms", self.visual_hist),
+            ("Imported ready CSV contours / histograms / averages", self.visual_imported_csv),
             ("Averages table", self.visual_table),
         ]
         for i, (label, var) in enumerate(items):
@@ -494,7 +502,7 @@ class ToolkitWizard(tk.Tk):
                 var.set(True)
                 cb.configure(state="disabled")
         table = ttk.Frame(box)
-        table.grid(row=3, column=1, sticky="w", padx=(20, 0))
+        table.grid(row=4, column=1, sticky="w", padx=(20, 0))
         ttk.Label(table, text="Table name").grid(row=0, column=0, padx=(0, 6))
         ttk.Entry(table, textvariable=self.average_table_name, width=28).grid(row=0, column=1)
 
@@ -931,6 +939,27 @@ class ToolkitWizard(tk.Tk):
         ttk.Button(manualrow, text="Add manual variable", command=addmanual).grid(row=0, column=1, padx=(6, 0)); ment.bind("<Return>", addmanual); ment.bind("<KP_Enter>", addmanual)
         ttk.Label(varbox, text="Selected variables are used in both table blocks where possible. Thermal-comfort calculated variables are included only in Surface Averages and are automatically omitted from Volume Averages.", wraplength=370, foreground="#666666").grid(row=2, column=0, sticky="w", pady=(6, 0))
 
+        imported_box = ttk.LabelFrame(frame, text="Imported surface averages", padding=10, style="Section.TLabelframe")
+        imported_box.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        selected_imported = []
+        for item in self.imported_csv_items:
+            names = [cfg["name"] for cfg in item["variables"].values() if cfg.get("create_average", False)]
+            if names:
+                selected_imported.append(f"{item['surface_name']}: {', '.join(names)}")
+        if selected_imported:
+            ttk.Label(
+                imported_box,
+                text=("These selections were made on the Imported ready CSV page and will be added as a third "
+                      "'Imported Surface Averages' block in the same CFX table:\n" + "\n".join(selected_imported)),
+                wraplength=1020,
+            ).grid(row=0, column=0, sticky="w")
+        else:
+            ttk.Label(
+                imported_box,
+                text="No imported-surface averages are selected.",
+                foreground="#666666",
+            ).grid(row=0, column=0, sticky="w")
+
     def _capture_table(self):
         for n, v in getattr(self, "table_surface_vars", {}).items(): self.table_surface_selection[n] = bool(v.get())
         for n, v in getattr(self, "table_volume_vars", {}).items(): self.table_volume_selection[n] = bool(v.get())
@@ -944,6 +973,307 @@ class ToolkitWizard(tk.Tk):
 
     def _selected_table_vars(self):
         return [n for n in self._all_surface_variable_names() if self.table_variable_selection.get(n, False)]
+
+    # ------------------------------------------------------------------
+    # Imported ready CSV surfaces
+    # ------------------------------------------------------------------
+    def _sanitize_imported_surface_name(self, path_obj):
+        stem = Path(path_obj).stem.strip()
+        return stem or f"Imported surface {len(self.imported_csv_items) + 1}"
+
+    def _load_imported_csv_file(self, path_obj):
+        data = read_import_dataframe(path_obj)
+        variables = imported_csv_variable_columns(data)
+        if not variables:
+            raise ValueError(f"No non-geometric variables were detected in {path_obj}.")
+        existing = next((item for item in self.imported_csv_items if Path(item["csv_file"]) == Path(path_obj)), None)
+        existing_vars = existing["variables"] if existing else {}
+        variable_map = {}
+        for name in variables:
+            saved = existing_vars.get(name, {})
+            variable_map[name] = {
+                "name": name,
+                "create_contour": bool(saved.get("create_contour", False)),
+                "create_histogram": bool(saved.get("create_histogram", False)),
+                "create_average": bool(saved.get("create_average", False)),
+                "lower": str(saved.get("lower", "")),
+                "upper": str(saved.get("upper", "")),
+                "number_of_contours": str(saved.get("number_of_contours", "")),
+                "histogram_divisions": str(saved.get("histogram_divisions", "")),
+            }
+        return {
+            "csv_file": str(Path(path_obj)),
+            "surface_name": existing["surface_name"] if existing else self._sanitize_imported_surface_name(path_obj),
+            "variables": variable_map,
+        }
+
+    def _browse_imported_csv_files(self):
+        files = filedialog.askopenfilenames(
+            title="Select ready Generic Data CSV files",
+            initialdir=str(Path.home()),
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+        )
+        if not files:
+            return
+        items = []
+        errors = []
+        for file_path in files:
+            try:
+                items.append(self._load_imported_csv_file(file_path))
+            except Exception as exc:
+                errors.append(f"{file_path}: {exc}")
+        if errors:
+            messagebox.showerror("Imported CSV error", "Could not read one or more files\n\n" + "\n".join(errors))
+        if items:
+            self.imported_csv_items = items
+            self.show_page("imported_csvs", push_history=False)
+
+    def _clear_imported_csv_files(self):
+        self.imported_csv_items = []
+        self.show_page("imported_csvs", push_history=False)
+
+    def _imported_csv_variable_sets_match(self):
+        if not self.imported_csv_items:
+            return False
+        first = {str(name).casefold() for name in self.imported_csv_items[0]["variables"]}
+        return all(
+            {str(name).casefold() for name in item["variables"]} == first
+            for item in self.imported_csv_items[1:]
+        )
+
+    def _build_imported_variable_table(self, parent, configs, *, targets, title=None):
+        if title:
+            ttk.Label(parent, text=title, font=("Segoe UI", 9, "bold")).grid(
+                row=0, column=0, sticky="w", pady=(0, 6)
+            )
+            table_row = 1
+        else:
+            table_row = 0
+
+        table = ttk.Frame(parent)
+        table.grid(row=table_row, column=0, sticky="ew")
+        headers = [
+            "Variable", "Contour", "Histogram", "Average",
+            "Lower", "Upper", "Contours", "Histogram divisions",
+        ]
+        for c, header in enumerate(headers):
+            ttk.Label(table, text=header, font=("Segoe UI", 9, "bold")).grid(
+                row=0, column=c, sticky="w", padx=4, pady=(0, 6)
+            )
+
+        variable_widgets = {}
+        for r, (name, cfg) in enumerate(configs.items(), start=1):
+            contour_var = tk.BooleanVar(value=bool(cfg.get("create_contour", False)))
+            hist_var = tk.BooleanVar(value=bool(cfg.get("create_histogram", False)))
+            average_var = tk.BooleanVar(value=bool(cfg.get("create_average", False)))
+            lower_var = tk.StringVar(value=str(cfg.get("lower", "")))
+            upper_var = tk.StringVar(value=str(cfg.get("upper", "")))
+            contour_count_var = tk.StringVar(value=str(cfg.get("number_of_contours", "")))
+            hist_div_var = tk.StringVar(value=str(cfg.get("histogram_divisions", "")))
+
+            ttk.Label(table, text=name).grid(row=r, column=0, sticky="w", padx=4, pady=3)
+            ttk.Checkbutton(table, variable=contour_var).grid(row=r, column=1, padx=4)
+            ttk.Checkbutton(table, variable=hist_var).grid(row=r, column=2, padx=4)
+            average_cb = ttk.Checkbutton(table, variable=average_var)
+            average_cb.grid(row=r, column=3, padx=4)
+            if not self.visual_table.get():
+                average_cb.configure(state="disabled")
+
+            lower_entry = ttk.Entry(table, textvariable=lower_var, width=12)
+            upper_entry = ttk.Entry(table, textvariable=upper_var, width=12)
+            contour_entry = ttk.Entry(table, textvariable=contour_count_var, width=12)
+            hist_entry = ttk.Entry(table, textvariable=hist_div_var, width=16)
+            lower_entry.grid(row=r, column=4, padx=4, pady=3)
+            upper_entry.grid(row=r, column=5, padx=4, pady=3)
+            contour_entry.grid(row=r, column=6, padx=4, pady=3)
+            hist_entry.grid(row=r, column=7, padx=4, pady=3)
+
+            def update_state(*_args, cv=contour_var, hv=hist_var,
+                             le=lower_entry, ue=upper_entry, ce=contour_entry, he=hist_entry):
+                any_plot = cv.get() or hv.get()
+                le.configure(state="normal" if any_plot else "disabled")
+                ue.configure(state="normal" if any_plot else "disabled")
+                ce.configure(state="normal" if cv.get() else "disabled")
+                he.configure(state="normal" if hv.get() else "disabled")
+
+            contour_var.trace_add("write", update_state)
+            hist_var.trace_add("write", update_state)
+            update_state()
+
+            variable_widgets[name] = {
+                "name": name,
+                "create_contour": contour_var,
+                "create_histogram": hist_var,
+                "create_average": average_var,
+                "lower": lower_var,
+                "upper": upper_var,
+                "number_of_contours": contour_count_var,
+                "histogram_divisions": hist_div_var,
+            }
+
+        self.imported_csv_widget_state.append({
+            "targets": list(targets),
+            "variables": variable_widgets,
+        })
+
+    def _build_imported_csvs_page(self):
+        frame = ttk.Frame(self.content, padding=12)
+        frame.grid(sticky="nsew")
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(1, weight=1)
+
+        top = ttk.Frame(frame)
+        top.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        top.columnconfigure(2, weight=1)
+        ttk.Button(top, text="Select CSV files…", command=self._browse_imported_csv_files).grid(row=0, column=0, sticky="w")
+        ttk.Button(top, text="Clear", command=self._clear_imported_csv_files).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        ttk.Label(
+            top,
+            text=("Each selected file is treated as a ready-to-import Generic Data surface. "
+                  "Only non-geometric variables are listed. Blank lower/upper bounds use the 5th/95th percentile. "
+                  "Contour and histogram use one shared lower/upper pair. The Average checkbox adds that variable "
+                  "to the Imported Surface Averages block of the main averages table."),
+            wraplength=1020,
+            foreground="#666666",
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(8, 0))
+
+        scroll = ScrollableFrame(frame, height=430)
+        scroll.grid(row=1, column=0, sticky="nsew")
+        inner = scroll.inner
+        inner.columnconfigure(0, weight=1)
+        self.imported_csv_widget_state = []
+
+        if not self.imported_csv_items:
+            ttk.Label(inner, text="No imported CSV files selected yet.", foreground="#666666").grid(row=0, column=0, sticky="w")
+            return
+
+        all_same = len(self.imported_csv_items) > 1 and self._imported_csv_variable_sets_match()
+        if all_same:
+            box = ttk.LabelFrame(
+                inner,
+                text="Shared imported-variable settings",
+                padding=10,
+                style="Section.TLabelframe",
+            )
+            box.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+            box.columnconfigure(0, weight=1)
+            names = ", ".join(item["surface_name"] for item in self.imported_csv_items)
+            ttk.Label(
+                box,
+                text=f"All selected CSV surfaces contain the same variables. These settings apply to: {names}",
+                foreground="#666666",
+                wraplength=1000,
+            ).grid(row=0, column=0, sticky="w", pady=(0, 8))
+            first_configs = self.imported_csv_items[0]["variables"]
+            table_holder = ttk.Frame(box)
+            table_holder.grid(row=1, column=0, sticky="ew")
+            self._build_imported_variable_table(
+                table_holder,
+                first_configs,
+                targets=range(len(self.imported_csv_items)),
+            )
+        else:
+            row = 0
+            for item_index, item in enumerate(self.imported_csv_items):
+                box = ttk.LabelFrame(inner, text=item["surface_name"], padding=10, style="Section.TLabelframe")
+                box.grid(row=row, column=0, sticky="ew", pady=(0, 10))
+                row += 1
+                box.columnconfigure(0, weight=1)
+                ttk.Label(
+                    box,
+                    text=item["csv_file"],
+                    foreground="#666666",
+                    wraplength=1000,
+                ).grid(row=0, column=0, sticky="w", pady=(0, 8))
+                holder = ttk.Frame(box)
+                holder.grid(row=1, column=0, sticky="ew")
+                self._build_imported_variable_table(
+                    holder,
+                    item["variables"],
+                    targets=[item_index],
+                )
+
+        if not self.visual_table.get():
+            ttk.Label(
+                inner,
+                text="Average selections are disabled because 'Averages table' is not enabled on the Visual output types page.",
+                foreground="#666666",
+                wraplength=1000,
+            ).grid(row=99, column=0, sticky="w", pady=(2, 0))
+
+    @staticmethod
+    def _imported_widget_values(vars_map):
+        return {
+            "name": vars_map["name"],
+            "create_contour": bool(vars_map["create_contour"].get()),
+            "create_histogram": bool(vars_map["create_histogram"].get()),
+            "create_average": bool(vars_map["create_average"].get()),
+            "lower": vars_map["lower"].get().strip(),
+            "upper": vars_map["upper"].get().strip(),
+            "number_of_contours": vars_map["number_of_contours"].get().strip(),
+            "histogram_divisions": vars_map["histogram_divisions"].get().strip(),
+        }
+
+    def _capture_imported_csvs(self):
+        widget_state = getattr(self, "imported_csv_widget_state", None)
+        if not widget_state:
+            return
+
+        # Start from the current file registry so CSV paths/surface names are preserved.
+        rebuilt = []
+        for item in self.imported_csv_items:
+            rebuilt.append({
+                "csv_file": item["csv_file"],
+                "surface_name": item["surface_name"],
+                "variables": {name: dict(cfg) for name, cfg in item["variables"].items()},
+            })
+
+        for state in widget_state:
+            values = {
+                name: self._imported_widget_values(vars_map)
+                for name, vars_map in state["variables"].items()
+            }
+            for index in state["targets"]:
+                target = rebuilt[index]
+                target["variables"] = {name: dict(cfg) for name, cfg in values.items()}
+
+        self.imported_csv_items = rebuilt
+
+    def _selected_imported_csv_files(self):
+        out = []
+        for item in self.imported_csv_items:
+            variables = []
+            for cfg in item["variables"].values():
+                if not (
+                    cfg.get("create_contour", False)
+                    or cfg.get("create_histogram", False)
+                    or cfg.get("create_average", False)
+                ):
+                    continue
+                variables.append(ImportedCSVVariableConfig(
+                    name=cfg["name"],
+                    create_contour=bool(cfg.get("create_contour", False)),
+                    create_histogram=bool(cfg.get("create_histogram", False)),
+                    create_average=bool(cfg.get("create_average", False)),
+                    lower=self._optional_float(cfg.get("lower", "")),
+                    upper=self._optional_float(cfg.get("upper", "")),
+                    number_of_contours=self._optional_int(cfg.get("number_of_contours", "")),
+                    histogram_divisions=self._optional_int(cfg.get("histogram_divisions", "")),
+                ))
+            if variables:
+                out.append(ImportedCSVFileConfig(
+                    csv_file=Path(item["csv_file"]),
+                    surface_name=item["surface_name"],
+                    variables=variables,
+                ))
+        return out
+
+    def _has_imported_average_selection(self):
+        return any(
+            bool(cfg.get("create_average", False))
+            for item in self.imported_csv_items
+            for cfg in item["variables"].values()
+        )
 
     # ------------------------------------------------------------------
     # Variable ranges / controls
@@ -1062,18 +1392,24 @@ class ToolkitWizard(tk.Tk):
             if self._need_normal_surfaces(): return "surfaces"
             if self.visual_sections.get(): return "sections"
             if self.visual_hist.get(): return "histograms"
+            if self.visual_imported_csv.get(): return "imported_csvs"
             if self.visual_table.get(): return "table"
             return "variable_settings"
         if page == "surfaces":
             if self.visual_sections.get(): return "sections"
             if self.visual_hist.get(): return "histograms"
+            if self.visual_imported_csv.get(): return "imported_csvs"
             if self.visual_table.get(): return "table"
             return "variable_settings"
         if page == "sections":
             if self.visual_hist.get(): return "histograms"
+            if self.visual_imported_csv.get(): return "imported_csvs"
             if self.visual_table.get(): return "table"
             return "variable_settings"
         if page == "histograms":
+            if self.visual_imported_csv.get(): return "imported_csvs"
+            return "table" if self.visual_table.get() else "variable_settings"
+        if page == "imported_csvs":
             return "table" if self.visual_table.get() else "variable_settings"
         if page == "table": return "variable_settings"
         if page == "variable_settings": return "controls"
@@ -1088,6 +1424,7 @@ class ToolkitWizard(tk.Tk):
         elif page == "sections": self._capture_sections()
         elif page == "histograms": self._capture_histograms()
         elif page == "table": self._capture_table()
+        elif page == "imported_csvs": self._capture_imported_csvs()
         elif page == "variable_settings": self._capture_variable_settings()
         nxt = self._next_after(page)
         if nxt:
@@ -1122,7 +1459,7 @@ class ToolkitWizard(tk.Tk):
                     raise ValueError("Choose the project/output directory.")
             elif page == "visuals":
                 if self.mode.get() == MODE_FULL: self.visual_plan.set(True)
-                if not any(v.get() for v in (self.visual_plan, self.visual_sections, self.visual_hist, self.visual_table)):
+                if not any(v.get() for v in (self.visual_plan, self.visual_sections, self.visual_hist, self.visual_table, self.visual_imported_csv)):
                     raise ValueError("Select at least one visual output type.")
                 if self.visual_table.get() and not self.average_table_name.get().strip():
                     raise ValueError("Enter a table name.")
@@ -1149,10 +1486,41 @@ class ToolkitWizard(tk.Tk):
                 self._capture_table()
                 surfaces, volumes = self._selected_table_surfaces(), self._selected_table_volumes()
                 variables = self._selected_table_vars()
-                if not surfaces and not volumes: raise ValueError("Select at least one surface or volume for the averages table.")
-                if not variables: raise ValueError("Select at least one table variable.")
-                if volumes and not surfaces and all(self._is_calculated_variable(n) for n in variables):
+                imported_averages = self._has_imported_average_selection()
+                if not surfaces and not volumes and not imported_averages:
+                    raise ValueError("Select at least one surface, volume, or imported-surface average for the averages table.")
+                if (surfaces or volumes) and not variables:
+                    raise ValueError("Select at least one table variable for the normal surface/volume blocks.")
+                if volumes and not surfaces and variables and all(self._is_calculated_variable(n) for n in variables):
                     raise ValueError("Volume averages cannot use thermal-comfort calculated variables. Select at least one native or created variable.")
+            elif page == "imported_csvs":
+                self._capture_imported_csvs()
+                if self.visual_imported_csv.get() and not self.imported_csv_items:
+                    raise ValueError("Select at least one imported CSV file.")
+                if self.visual_imported_csv.get():
+                    any_selected = False
+                    for item in self.imported_csv_items:
+                        selected_for_file = False
+                        for cfg in item["variables"].values():
+                            contour = bool(cfg.get("create_contour", False))
+                            hist = bool(cfg.get("create_histogram", False))
+                            average = bool(cfg.get("create_average", False)) and self.visual_table.get()
+                            if contour or hist or average:
+                                selected_for_file = True
+                                any_selected = True
+                            if contour or hist:
+                                lo = cfg.get("lower", "")
+                                hi = cfg.get("upper", "")
+                                if lo and hi and float(lo) >= float(hi):
+                                    raise ValueError(f"Imported CSV variable '{cfg['name']}' on '{item['surface_name']}': lower must be smaller than upper.")
+                                if contour and cfg.get("number_of_contours", "") and int(cfg["number_of_contours"]) < 2:
+                                    raise ValueError(f"Imported CSV variable '{cfg['name']}' on '{item['surface_name']}': contours must be >= 2.")
+                                if hist and cfg.get("histogram_divisions", "") and int(cfg["histogram_divisions"]) < 1:
+                                    raise ValueError(f"Imported CSV variable '{cfg['name']}' on '{item['surface_name']}': histogram divisions must be >= 1.")
+                        if not selected_for_file:
+                            pass
+                    if not any_selected:
+                        raise ValueError("Select at least one contour, histogram, or imported-surface average variable.")
             elif page == "variable_settings":
                 self._capture_variable_settings()
                 non_section = set(self._selected_normal_vars() if self.visual_plan.get() else [])
@@ -1260,6 +1628,8 @@ class ToolkitWizard(tk.Tk):
             velocity_vector_samples=int(self.velocity_vector_samples.get()),
             streamline_samples=int(self.streamline_samples.get()),
             average_table_name=self.average_table_name.get().strip() or "Average conditions",
+            create_imported_csv_visualizations=self.visual_imported_csv.get(),
+            imported_csv_files=self._selected_imported_csv_files() if self.visual_imported_csv.get() else [],
             first_figure_number=int(self.first_figure_number.get()),
             camera_margin=float(self.camera_margin.get()),
             camera_scale_factor=float(self.camera_scale_factor.get()),
